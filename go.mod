@@ -1,4 +1,4 @@
-module github.com/kaldun/go-rate-limiting
+module github.com/kaldun-tech/go-rate-limiting
 
 go 1.22.2
 
