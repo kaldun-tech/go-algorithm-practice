@@ -1,8 +1,9 @@
-package main
+package practice
 
 import (
 	"container/heap"
 	"context"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -85,23 +86,64 @@ func NewTaskScheduler() *TaskScheduler {
 	return ts
 }
 
-func (ts *TaskScheduler) AddTask(t Task) {
+func (ts *TaskScheduler) Len() int {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
-	heap.Push(&ts.tasks, t)
-	ts.signal <- struct{}{}
+	return ts.tasks.Len()
 }
 
-func (ts *TaskScheduler) GetNextTask() *Task {
+// Use a non-blocking send outside the lock
+func (ts *TaskScheduler) AddTask(t Task) {
+	ts.mu.Lock()
+	heap.Push(&ts.tasks, t)
+	ts.mu.Unlock()
+
+	// Non-blocking send - if Run() is busy, it will re-check the heap anyway
+	select {
+	case ts.signal <- struct{}{}:
+	default:
+	}
+}
+
+func (ts *TaskScheduler) GetNextTask() (*Task, bool) {
+	// Use internal Len rather than public Len to avoid double locking
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
-	return heap.Pop(&ts.tasks).(Task)
+	if len(ts.tasks) == 0 {
+		return nil, false
+	}
+
+	task := heap.Pop(&ts.tasks).(Task)
+	return &task, true
+}
+
+func (ts *TaskScheduler) ExecuteNextTask() {
+	// Pop the next task (with lock)
+	ts.mu.Lock()
+	if ts.tasks.Len() == 0 {
+		ts.mu.Unlock()
+		return
+	}
+	task := heap.Pop(&ts.tasks).(Task)
+	ts.mu.Unlock()
+
+	// Execute the callback (without lock, so other tasks can be added)
+	if task.Callback != nil {
+		defer func() {
+			// Recover from panics so the scheduler keeps running
+			if r := recover(); r != nil {
+				fmt.Println("task panicked:", task.ID, r)
+			}
+		}()
+		task.Callback()
+	}
 }
 
 func (ts *TaskScheduler) Run(ctx context.Context) {
 	for {
+		// Use internal Len rather than public to avoid double locking
 		ts.mu.Lock()
-		if ts.Len() == 0 {
+		if ts.tasks.Len() == 0 {
 			// Nothing scheduled -> wait for signal or cancellation
 			ts.mu.Unlock()
 			select {
@@ -120,7 +162,7 @@ func (ts *TaskScheduler) Run(ctx context.Context) {
 
 		if delay <= 0 {
 			// Due now -> execute it
-			ts.executeNext()
+			ts.ExecuteNextTask()
 			continue
 		}
 
@@ -135,14 +177,7 @@ func (ts *TaskScheduler) Run(ctx context.Context) {
 			timer.Stop()
 			continue // new task added, recalculate
 		case <-timer.C:
-			ts.executeNext()
+			ts.ExecuteNextTask()
 		}
 	}
 }
-
-// Test cases to think through:
-// - Add tasks out of order
-// - GetNextTask when empty
-// - GetNextTask when nothing is due yet
-// - Multiple tasks at same time
-//  Edge case: adding a task with ExecuteAt in the past—execute immediately or reject
