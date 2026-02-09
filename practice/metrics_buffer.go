@@ -7,9 +7,21 @@ import (
 
 // Think through:
 // 1. Fixed-size backing array
+// A: A ring buffer is a fixed-size, in-memory circular array where new samples overwrite the oldest ones
+// Typically implement it as an array/slice plus moving indices, optionally with sync for concurrent readers/writers
+
 // 2. Head/tail pointers (or single write index if only one writer)
+// A: Track a write index and either a count or read index
+
 // 3. When to overwrite vs when buffer not full yet
+// A: Each entry is written at wIdx. Wrap around wIdx = (wIdx+1) % capacity
+// When buffer is full, overwrite the oldest sample - consider timestamp
+// Ideal for last N points or sliding-window stats without unbounded memory growth
+
 // 4. Lock granularity - one lock for whole buffer or try lock-free?
+// A: Most metric collection has one writer and multiple readers
+// A simple mutex is usually fast enough. Use an RWMutex with a small buffer 60-600 points/metric
+// Can also consider a single writer, many readers with copy on read: readers call Snapshot to copy out
 
 // MetricsBuffer is a thread-safe ring buffer for metrics collection
 type MetricsBuffer struct {
