@@ -39,6 +39,7 @@ import (
 type Task struct {
 	ID        string
 	ExecuteAt time.Time
+	Priority  uint // Priority 0 should be executed first
 	Callback  func()
 }
 
@@ -47,9 +48,12 @@ type TaskHeap []Task
 func (h *TaskHeap) Len() int { return len(*h) }
 
 // Detects whether Task at position i is less than position j
-// Begin with only execution time, then implement priority
+// Ordered first by execution time, then by priority
 func (h *TaskHeap) Less(i, j int) bool {
-	return (*h)[i].ExecuteAt.Before((*h)[j].ExecuteAt)
+	a := (*h)[i]
+	b := (*h)[j]
+	return a.ExecuteAt.Before(b.ExecuteAt) ||
+		(a.ExecuteAt.Equal(b.ExecuteAt) && a.Priority < b.Priority)
 }
 
 func (h *TaskHeap) Swap(i, j int) {

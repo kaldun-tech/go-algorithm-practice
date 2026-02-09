@@ -39,27 +39,40 @@ func TestTaskHeap_OrdersByExecuteTime(t *testing.T) {
 	}
 }
 
-func TestTaskHeap_SameExecuteTime(t *testing.T) {
+func TestTaskHeap_TimeTakesPrecedenceOverPriority(t *testing.T) {
 	ts := NewTaskScheduler()
 	now := time.Now()
 
-	// Add multiple tasks at exact same time
-	ts.AddTask(Task{ID: "a", ExecuteAt: now})
-	ts.AddTask(Task{ID: "b", ExecuteAt: now})
-	ts.AddTask(Task{ID: "c", ExecuteAt: now})
+	// High priority but later time should still come second
+	ts.AddTask(Task{ID: "later-high-pri", ExecuteAt: now.Add(time.Second), Priority: 1})
+	ts.AddTask(Task{ID: "sooner-low-pri", ExecuteAt: now, Priority: 100})
 
-	// All three should be retrievable (order among them is unspecified)
-	seen := make(map[string]bool)
-	for i := 0; i < 3; i++ {
+	first, _ := ts.GetNextTask()
+	if first.ID != "sooner-low-pri" {
+		t.Errorf("expected time to take precedence, got %s first", first.ID)
+	}
+}
+
+func TestTaskHeap_SameExecuteTime_PriorityBreaksTie(t *testing.T) {
+	ts := NewTaskScheduler()
+	now := time.Now()
+
+	// Add multiple tasks at exact same time with different priorities
+	// Lower priority number = higher priority (executes first)
+	ts.AddTask(Task{ID: "low", ExecuteAt: now, Priority: 10})
+	ts.AddTask(Task{ID: "high", ExecuteAt: now, Priority: 1})
+	ts.AddTask(Task{ID: "medium", ExecuteAt: now, Priority: 5})
+
+	// Should come out in priority order (lowest number first)
+	expected := []string{"high", "medium", "low"}
+	for i, exp := range expected {
 		task, ok := ts.GetNextTask()
 		if !ok || task == nil {
 			t.Fatalf("expected task, got nil on iteration %d", i)
 		}
-		seen[task.ID] = true
-	}
-
-	if len(seen) != 3 {
-		t.Errorf("expected 3 unique tasks, got %d", len(seen))
+		if task.ID != exp {
+			t.Errorf("iteration %d: expected %s, got %s", i, exp, task.ID)
+		}
 	}
 }
 
