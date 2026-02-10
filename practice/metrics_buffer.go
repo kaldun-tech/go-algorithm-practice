@@ -183,6 +183,10 @@ func (tmb *TimestampedMetricsBuffer) GetWindow(duration time.Duration) []Timesta
 		sample := tmb.buffer[pos]
 		if time.Since(sample.Timestamp) <= duration {
 			result = append(result, sample)
+		} else {
+			// Since we iterate from newest to oldest there's no reason to continue
+			// iteration. Previous entries are even older
+			break
 		}
 	}
 

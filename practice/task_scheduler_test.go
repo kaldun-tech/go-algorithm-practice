@@ -321,7 +321,3 @@ func TestTaskScheduler_Len(t *testing.T) {
 		t.Errorf("expected 2, got %d", ts.Len())
 	}
 }
-
-// Silence unused import errors for atomic (used in TODO tests)
-var _ = atomic.AddInt64
-var _ = sync.WaitGroup{}

@@ -17,11 +17,7 @@ import (
 // A: We implement implicitly via Go's duck typing. Implement the 5 declared methods
 
 // 3. What does Less() compare - just time, or time + priority?
-// A: Start with time, override to add prio later:
-// if t1.ExecuteAt.Equal(t2.ExecuteAt) {
-//    return t1.Priority < t2.Priority
-// }
-// return t1.ExecuteAt.Before(t2.ExecuteAt)
+// A: Start with time as primary determinant, override to add prio later as the tie-breaker for same time
 
 // 4. Thread-safety: where do you need locks?
 // A: Assuming multi-threading locks become needed when reading and writing the data. In practice a regular Mutex often suffices here because:

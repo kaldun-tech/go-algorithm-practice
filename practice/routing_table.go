@@ -8,8 +8,10 @@ import (
 // Think through:
 // 1. How do you represent each node?
 // A: TrieNode has binary keys for bits. Internal gateway is either populated for a route or empty if none ends here.
+
 // 2. CIDR parsing: how do you convert "192.168.1.0/24" to usable format?
 // A: Use the net.ParseCIDR function, then convert to uint32 binary. Trie is traversed by bits.
+
 // 3. Longest prefix match: how do you track "best match so far"?
 // A: Gateway is stored per node. Best match is updated as we walk the tree and find a gateway in the node.
 

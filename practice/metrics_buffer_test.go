@@ -95,9 +95,19 @@ func TestMetricsBuffer_GetRecentReturnsCorrectOrder(t *testing.T) {
 
 	recent := mb.GetRecent(3)
 
-	// Define expected order: should be [3, 4, 5] or [5, 4, 3]?
-	// Test for your chosen behavior
-	_ = recent
+	// Define expected order: should be [3, 4, 5]
+	if len(recent) != 3 {
+		t.Errorf("expected 3 elements, got %d", len(recent))
+	}
+	if recent[0] != 3 {
+		t.Errorf("expected 3 at position 0, got %f", recent[0])
+	}
+	if recent[1] != 4 {
+		t.Errorf("expected 4 at position 0, got %f", recent[1])
+	}
+	if recent[2] != 5 {
+		t.Errorf("expected 5 at position 0, got %f", recent[2])
+	}
 }
 
 // =============================================================================
@@ -122,7 +132,7 @@ func TestMetricsBuffer_AverageEmpty(t *testing.T) {
 	mb := NewMetricsBuffer(5)
 
 	avg := mb.Average()
-	// What should empty buffer return? 0? NaN?
+	// Empty buffer Average returns 0
 	if avg != 0 {
 		t.Errorf("expected 0 for empty buffer, got %f", avg)
 	}
@@ -166,7 +176,7 @@ func TestMetricsBuffer_ConcurrentPushAndRead(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 50; i++ {
+		for range 50 {
 			_ = mb.GetRecent(10)
 			_ = mb.Average()
 		}
@@ -292,7 +302,7 @@ func TestTimestampedBuffer_ConcurrentPushAndRead(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Multiple writers
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
@@ -306,7 +316,7 @@ func TestTimestampedBuffer_ConcurrentPushAndRead(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 50; i++ {
+		for range 50 {
 			_ = tmb.GetWindow(time.Minute)
 		}
 	}()
