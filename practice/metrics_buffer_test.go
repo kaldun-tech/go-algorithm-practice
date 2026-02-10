@@ -221,3 +221,101 @@ func TestTimestampedBuffer_OldSamplesExpire(t *testing.T) {
 		t.Errorf("expected 1 sample (old one expired), got %d", len(window))
 	}
 }
+
+func TestTimestampedBuffer_Empty(t *testing.T) {
+	tmb := NewTimestampedMetricsBuffer(5)
+
+	window := tmb.GetWindow(time.Minute)
+	if len(window) != 0 {
+		t.Errorf("expected 0 samples for empty buffer, got %d", len(window))
+	}
+}
+
+func TestTimestampedBuffer_PushWhenFullOverwrites(t *testing.T) {
+	tmb := NewTimestampedMetricsBuffer(3)
+
+	tmb.Push(1.0)
+	tmb.Push(2.0)
+	tmb.Push(3.0)
+	tmb.Push(4.0) // Should overwrite 1.0
+
+	// Get all samples (large window)
+	window := tmb.GetWindow(time.Minute)
+	if len(window) != 3 {
+		t.Fatalf("expected 3 samples, got %d", len(window))
+	}
+
+	// Verify 1.0 is gone and 4.0 is present
+	found1, found4 := false, false
+	for _, s := range window {
+		if s.Value == 1.0 {
+			found1 = true
+		}
+		if s.Value == 4.0 {
+			found4 = true
+		}
+	}
+
+	if found1 {
+		t.Error("1.0 should have been overwritten")
+	}
+	if !found4 {
+		t.Error("4.0 should be in buffer")
+	}
+}
+
+func TestTimestampedBuffer_ReturnsNewestFirst(t *testing.T) {
+	tmb := NewTimestampedMetricsBuffer(5)
+
+	tmb.Push(1.0)
+	time.Sleep(5 * time.Millisecond)
+	tmb.Push(2.0)
+	time.Sleep(5 * time.Millisecond)
+	tmb.Push(3.0)
+
+	window := tmb.GetWindow(time.Minute)
+	if len(window) != 3 {
+		t.Fatalf("expected 3 samples, got %d", len(window))
+	}
+
+	// Implementation iterates newest to oldest
+	if window[0].Value != 3.0 {
+		t.Errorf("expected first sample to be 3.0 (newest), got %f", window[0].Value)
+	}
+	if window[2].Value != 1.0 {
+		t.Errorf("expected last sample to be 1.0 (oldest), got %f", window[2].Value)
+	}
+}
+
+func TestTimestampedBuffer_ConcurrentPushAndRead(t *testing.T) {
+	tmb := NewTimestampedMetricsBuffer(100)
+	var wg sync.WaitGroup
+
+	// Multiple writers
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < 20; j++ {
+				tmb.Push(float64(id*100 + j))
+			}
+		}(i)
+	}
+
+	// Concurrent reader
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 50; i++ {
+			_ = tmb.GetWindow(time.Minute)
+		}
+	}()
+
+	wg.Wait()
+
+	// If we get here without race detector complaints, concurrency is handled
+	window := tmb.GetWindow(time.Minute)
+	if len(window) != 100 {
+		t.Errorf("expected 100 samples after concurrent writes, got %d", len(window))
+	}
+}
