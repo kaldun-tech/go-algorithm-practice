@@ -8,9 +8,10 @@ import "fmt"
 // 2. How do you track which blocks are available vs used?
 // The used count represents a write index of the next empty block to write to
 // 3. What happens when Write() is called with data longer than 8 bytes?
-// If the data is empty, has remainder when its length is divided by 8, or would overfill the capacity we want to return an error.
+// We return an error if the data has remainder when its length is divided by 8, or would overfill the capacity we want to return an error.
+// Can treat an empty string as a no operation case
 // 4. How do you find the next available block efficiently?
-// The used count gives us a write index. We can also use a tail pointer to know where to write to.
+// The used count gives us the next index to write to
 
 const BlockDataSize = 8
 
@@ -24,24 +25,35 @@ type FileBlockService struct {
 	capacity int
 	used     int
 	head     *Block
-	tail     *Block
 }
 
 func NewFileBlockService(capacity int) *FileBlockService {
-	return &FileBlockService{
+	fbs := &FileBlockService{
 		blocks:   make([]Block, capacity),
 		capacity: capacity,
 		used:     0,
-		head:     nil,
-		tail:     nil,
 	}
+
+	// Set up the block linking by iterating backwards
+	for i := capacity - 1; 0 <= i; i-- {
+		if i < capacity-1 {
+			// Link to next
+			fbs.blocks[i] = Block{Next: &fbs.blocks[i+1]}
+		} else {
+			fbs.blocks[i] = Block{}
+		}
+	}
+	// Use a dummy head to simplify writing
+	fbs.head = &Block{Next: &fbs.blocks[0]}
+
+	return fbs
 }
 
 // Print outputs a string representation of the block chain to the console
 // In format [data1] -> [data2] -> [data3] where data items may be empty
 func (fbs *FileBlockService) Print() {
-	// Walk the chain from head and print each block's data
-	for b := fbs.head; b != nil; b = b.Next {
+	// Walk the chain from dummy head and print each block's data
+	for b := fbs.head.Next; b != nil; b = b.Next {
 		fmt.Print("[", b.Data, "]")
 		if b.Next != nil {
 			fmt.Print(" -> ")
@@ -63,28 +75,18 @@ func (fbs *FileBlockService) Write(data string) error {
 	}
 
 	toAdd := n / 8
-	if fbs.capacity <= toAdd+fbs.used {
+	if fbs.capacity < toAdd+fbs.used {
 		return fmt.Errorf("Cannot add %d blocks with %d used and capacity %d", toAdd, fbs.used, fbs.capacity)
 	}
 
 	// Find next available block
-	if fbs.head == nil {
-		// Empty -> create dummy head/tail
-		fbs.head = &Block{}
-		fbs.tail = fbs.head
-	}
 	for i := range toAdd {
 		// Create next block from data slice
 		start := i * 8
 		end := (i + 1) * 8
-		fbs.tail.Next = &Block{Data: data[start:end]}
+		fbs.blocks[fbs.used].Data = data[start:end]
 		// Link to end of chain and update used count
-		fbs.tail = fbs.tail.Next
 		fbs.used++
 	}
 	return nil
-}
-
-func main() {
-
 }

@@ -11,19 +11,19 @@ import (
 func main() {
 	// Example 1: Basic token bucket
 	fmt.Println("Example 1: Basic Token Bucket (10 req/sec)")
-	exampleBasic()
+	tokenBucketBasic()
 
 	fmt.Println("\n" + strings.Repeat("=", 50))
 
 	// Example 2: With burst capacity
 	fmt.Println("\nExample 2: Token Bucket with Burst (5 req/sec, burst 10)")
-	exampleWithBurst()
+	tokenBucketBurst()
 
 	fmt.Println("\n" + strings.Repeat("=", 50))
 
 	// Example 3: Detailed info
 	fmt.Println("\nExample 3: AllowWithInfo - Detailed Rate Limit Information")
-	exampleWithInfo()
+	detailedRateLimitInfo()
 
 	fmt.Println("\n" + strings.Repeat("=", 50))
 
@@ -32,7 +32,7 @@ func main() {
 	exampleAllowN()
 }
 
-func exampleBasic() {
+func tokenBucketBasic() {
 	// Create token bucket: 10 requests per second
 	limiter := tokenbucket.NewTokenBucket(10, time.Second, 0) // burst defaults to rate
 
@@ -63,7 +63,7 @@ func exampleBasic() {
 	}
 }
 
-func exampleWithBurst() {
+func tokenBucketBurst() {
 	// Allow bursts up to 10, but only 5 per second sustained
 	limiter := tokenbucket.NewTokenBucket(5, time.Second, 10)
 
@@ -81,7 +81,7 @@ func exampleWithBurst() {
 	}
 }
 
-func exampleWithInfo() {
+func detailedRateLimitInfo() {
 	limiter := tokenbucket.NewTokenBucket(10, time.Second, 15)
 
 	key := "user:charlie"
