@@ -30,6 +30,7 @@ vendor/
 # Build output
 /bin/
 /dist/
+/health
 
 # Environment files
 .env
